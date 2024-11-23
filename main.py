@@ -4,24 +4,30 @@
 提供主要的GUI界面
 '''
 import wx
-import os
 import configparser
+from filter import filter_images
 
 class ConfigWindow(wx.Frame):
     def __init__(self, parent, title):
-        super(ConfigWindow, self).__init__(parent, title=title, size=(400, 500))
+        super(ConfigWindow, self).__init__(parent, title=title, size=(600, 500))
+        icon = wx.Icon("yutori.ico", wx.BITMAP_TYPE_ICO)
+        self.SetIcon(icon)
         self.Centre()
         self.SetBackgroundColour((240, 240, 240))
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        warning_text = wx.StaticText(self, label="相关参数明文储存在config.ini，分享给其他人可能导致私钥被盗。")
+        warning_text = wx.StaticText(self, label="相关参数明文储存在config.ini，分享给他人可能导致私钥被盗。")
         warning_text.SetForegroundColour((255, 0, 0))
         vbox.Add(warning_text, 0, wx.ALL | wx.EXPAND, 5)
 
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
 
-        param_names = ["百度人工智能平台A", "百度人工智能平台S", "百度翻译OCR A", "百度翻译OCR B", "DeppSeek A", "DeppSeek b"]
+        # 检查并添加节
+        if not self.config.has_section('YUTORI_TRANS_CONFIG'):
+            self.config.add_section('YUTORI_TRANS_CONFIG')
+
+        param_names = ["baidu_ai_ocr_app_key", "baidu_ai_ocr_secrct_key", "param3", "param4", "param5", "param6"]
         self.text_ctrls = []
 
         for param in param_names:
@@ -42,8 +48,11 @@ class ConfigWindow(wx.Frame):
 
         self.SetSizer(vbox)
 
+        # 手动设置焦点到保存按钮
+        save_button.SetFocus()
+
     def on_save(self, event):
-        for i, param in enumerate(["param536", "param2", "param3", "param4", "param5", "param6"]):
+        for i, param in enumerate(["baidu_ai_ocr_app_key", "baidu_ai_ocr_secrct_key", "param3", "param4", "param5", "param6"]):
             self.config.set('YUTORI_TRANS_CONFIG', param, self.text_ctrls[i].GetValue())
 
         with open('config.ini', 'w') as configfile:
@@ -71,7 +80,6 @@ class YutoriTransMainWindow(wx.Frame):
 
         # 添加文本框和按钮的容器
         input_container = wx.Panel(left_panel)
-        # 修改后的关键代码
         input_container_sizer = wx.BoxSizer(wx.VERTICAL)  # 保持垂直布局
 
         # 按钮和语言选择框放在同一行
@@ -91,7 +99,7 @@ class YutoriTransMainWindow(wx.Frame):
         language_sizer = wx.BoxSizer(wx.HORIZONTAL)  # 改为水平布局
         source_language_label = wx.StaticText(input_container, label="源语言:")
         self.source_language_combo = wx.ComboBox(input_container, choices=["English", "Chinese", "Japanese", "Korean"], style=wx.CB_READONLY)
-        self.source_language_combo.SetSelection(0)  # 默认选择英语
+        self.source_language_combo.SetSelection(2)  # 默认选择日语
 
         target_language_label = wx.StaticText(input_container, label="目标语言:")
         self.target_language_combo = wx.ComboBox(input_container, choices=["English", "Chinese", "Japanese", "Korean"], style=wx.CB_READONLY)
@@ -113,8 +121,27 @@ class YutoriTransMainWindow(wx.Frame):
         input_container.SetSizer(input_container_sizer)
         left_vbox.Add(input_container, 1, wx.EXPAND | wx.ALL, border=10)
 
-        # 空box，使文本框占1/2高度
-        left_vbox.Add((-1, -1), 1, wx.EXPAND)
+        # 新的box，包含三个按钮和一个文本框用于输出信息
+        output_container = wx.Panel(left_panel)
+        output_container_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # 顶部放置三个按钮
+        top_buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.extract_text_from_file_button = wx.Button(output_container, label="提取原文")
+        self.stop_button = wx.Button(output_container, label="停止")
+        self.pause_button = wx.Button(output_container, label="暂停")
+        top_buttons_sizer.Add(self.extract_text_from_file_button, 0, wx.EXPAND | wx.RIGHT, border=5)
+        top_buttons_sizer.Add(self.stop_button, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=5)
+        top_buttons_sizer.Add(self.pause_button, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=5)
+        output_container_sizer.Add(top_buttons_sizer, 0, wx.EXPAND)
+
+        # 下方有一个文本框用于输出信息
+        self.output_text_ctrl = wx.TextCtrl(output_container, style=wx.TE_MULTILINE | wx.TE_READONLY)
+        output_container_sizer.Add(self.output_text_ctrl, 1, wx.EXPAND)
+        self.output_text_ctrl.SetHint("欢迎使用柚鸟与夏图片快速翻译工具Yutori Translator。\n输出信息将显示在这里。\n\n点击提取文字会将所选图片载之文字输出到txt上。\n")
+
+        output_container.SetSizer(output_container_sizer)
+        left_vbox.Add(output_container, 1, wx.EXPAND | wx.ALL, border=10)
 
         left_panel.SetSizer(left_vbox)
         hbox.Add(left_panel, 3, wx.EXPAND | wx.ALL)
@@ -137,6 +164,9 @@ class YutoriTransMainWindow(wx.Frame):
         self.add_file_button.Bind(wx.EVT_BUTTON, self.on_add_file)
         self.add_folder_button.Bind(wx.EVT_BUTTON, self.on_add_folder)
         self.clear_button.Bind(wx.EVT_BUTTON, self.on_clear_text)
+        self.extract_text_from_file_button.Bind(wx.EVT_BUTTON, self.on_extract_text_from_file)
+        self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
+        self.pause_button.Bind(wx.EVT_BUTTON, self.on_pause)
 
         # 绑定拖放事件
         self.text_ctrl.SetDropTarget(FileDropTarget(self.text_ctrl))
@@ -169,11 +199,34 @@ class YutoriTransMainWindow(wx.Frame):
     def on_clear_text(self, event):
         self.text_ctrl.SetValue("")  # 清空文本框内容
 
+    def on_extract_text_from_file(self, event):
+        paths = self.text_ctrl.GetValue().splitlines()
+        source_language = self.get_source_language()
+        target_language = self.get_target_language()
+        if not paths:
+            self.output_text_ctrl.AppendText("没有输入任何路径。\n")
+            return
+        self.output_text_ctrl.AppendText("正在处理图片…\n")
+        filter_images(paths, self)
+
+        for path in paths:
+            pass
+
+    def on_stop(self, event):
+        self.output_text_ctrl.AppendText("停止操作\n")
+
+    def on_pause(self, event):
+        self.output_text_ctrl.AppendText("暂停操作\n")
+
     def get_source_language(self):
         return self.source_language_combo.GetStringSelection()
 
     def get_target_language(self):
         return self.target_language_combo.GetStringSelection()
+
+    def append_output_text(self, text):
+        """外部函数可以通过此方法在文本框中输出信息"""
+        self.output_text_ctrl.AppendText(text)
 
 class FileDropTarget(wx.FileDropTarget):
     def __init__(self, text_ctrl):
@@ -186,11 +239,10 @@ class FileDropTarget(wx.FileDropTarget):
         if current_text:
             new_text = current_text + "\n" + new_text
         self.text_ctrl.SetValue(new_text)
-
     
 def main():
     app = wx.App()
-    yt = YutoriTransMainWindow(None,title="柚鸟翻译 Yutori Translator")
+    yt = YutoriTransMainWindow(None,title="柚鸟与夏图片快速翻译工具 Yutori Translator")
     yt.Show()
     app.MainLoop()
 
