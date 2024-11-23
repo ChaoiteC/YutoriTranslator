@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 '''
-主函数。
+提供主要的GUI界面
 '''
 import wx
 import os
@@ -14,7 +14,7 @@ class ConfigWindow(wx.Frame):
         self.SetBackgroundColour((240, 240, 240))
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        warning_text = wx.StaticText(self, label="相关参数明文储存在config.ini，分享给其他人可能导致损失。")
+        warning_text = wx.StaticText(self, label="相关参数明文储存在config.ini，分享给其他人可能导致私钥被盗。")
         warning_text.SetForegroundColour((255, 0, 0))
         vbox.Add(warning_text, 0, wx.ALL | wx.EXPAND, 5)
 
@@ -71,25 +71,24 @@ class YutoriTransMainWindow(wx.Frame):
 
         # 添加文本框和按钮的容器
         input_container = wx.Panel(left_panel)
-        input_container_sizer = wx.BoxSizer(wx.VERTICAL)
+        # 修改后的关键代码
+        input_container_sizer = wx.BoxSizer(wx.VERTICAL)  # 保持垂直布局
+
+        # 按钮和语言选择框放在同一行
+        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # 按钮
-        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)  # 改为水平布局
         self.add_file_button = wx.Button(input_container, label="添加文件")
         self.add_folder_button = wx.Button(input_container, label="添加文件夹")
         self.clear_button = wx.Button(input_container, label="清空")
         button_sizer.Add(self.add_file_button, 0, wx.EXPAND | wx.RIGHT, border=5)
         button_sizer.Add(self.add_folder_button, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=5)
-        button_sizer.Add(self.clear_button, 0, wx.EXPAND | wx.LEFT |wx.RIGHT, border=5)
-        input_container_sizer.Add(button_sizer, 0, wx.EXPAND | wx.RIGHT | wx.BOTTOM, border=10)
-
-        # 文本框
-        self.text_ctrl = wx.TextCtrl(input_container, style=wx.TE_MULTILINE | wx.TE_READONLY)
-        input_container_sizer.Add(self.text_ctrl, 1, wx.EXPAND | wx.RIGHT | wx.BOTTOM, border=5)
-        self.text_ctrl.SetHint("使用上边的按键添加需要翻译的图片，你也可以直接拖放多个文件或文件夹到这里。")
+        button_sizer.Add(self.clear_button, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=5)
+        top_sizer.Add(button_sizer, 0, wx.EXPAND)
 
         # 源语言和目标语言下拉菜单
-        language_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        language_sizer = wx.BoxSizer(wx.HORIZONTAL)  # 改为水平布局
         source_language_label = wx.StaticText(input_container, label="源语言:")
         self.source_language_combo = wx.ComboBox(input_container, choices=["English", "Chinese", "Japanese", "Korean"], style=wx.CB_READONLY)
         self.source_language_combo.SetSelection(0)  # 默认选择英语
@@ -98,11 +97,18 @@ class YutoriTransMainWindow(wx.Frame):
         self.target_language_combo = wx.ComboBox(input_container, choices=["English", "Chinese", "Japanese", "Korean"], style=wx.CB_READONLY)
         self.target_language_combo.SetSelection(1)  # 默认选择中文
 
-        language_sizer.Add(source_language_label, 0, wx.ALL, border=5)
-        language_sizer.Add(self.source_language_combo, 0, wx.ALL, border=5)
-        language_sizer.Add(target_language_label, 0, wx.ALL, border=5)
-        language_sizer.Add(self.target_language_combo, 0, wx.ALL, border=5)
-        input_container_sizer.Add(language_sizer, 0, wx.EXPAND | wx.ALL, border=10)
+        language_sizer.Add(source_language_label, 0, wx.EXPAND | wx.LEFT, border=5)
+        language_sizer.Add(self.source_language_combo, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, border=15)
+        language_sizer.Add(target_language_label, 0, wx.EXPAND | wx.LEFT, border=5)
+        language_sizer.Add(self.target_language_combo, 0, wx.EXPAND | wx.LEFT, border=15)
+        top_sizer.Add(language_sizer, 0, wx.EXPAND | wx.EXPAND | wx.LEFT, border=10)
+
+        input_container_sizer.Add(top_sizer, 0, wx.EXPAND)
+
+        # 文本框
+        self.text_ctrl = wx.TextCtrl(input_container, style=wx.TE_MULTILINE | wx.TE_READONLY)
+        input_container_sizer.Add(self.text_ctrl, 1, wx.EXPAND)
+        self.text_ctrl.SetHint("使用上边的按键添加需要翻译的图片，你也可以直接拖放多个文件或文件夹到这里。")
 
         input_container.SetSizer(input_container_sizer)
         left_vbox.Add(input_container, 1, wx.EXPAND | wx.ALL, border=10)
@@ -117,7 +123,7 @@ class YutoriTransMainWindow(wx.Frame):
         right_panel = wx.Panel(panel)
         right_panel_vbox = wx.BoxSizer(wx.VERTICAL)
 
-        config_button = wx.Button(right_panel, label="参数配置")
+        config_button = wx.Button(right_panel, label="API 配置")
         right_panel_vbox.Add(config_button, 0, wx.EXPAND | wx.ALL, border=10)
         config_button.Bind(wx.EVT_BUTTON, self.open_config_window)
 
@@ -136,7 +142,7 @@ class YutoriTransMainWindow(wx.Frame):
         self.text_ctrl.SetDropTarget(FileDropTarget(self.text_ctrl))
 
     def open_config_window(self, event):
-        config_window = ConfigWindow(None, "参数配置")
+        config_window = ConfigWindow(None, "API 配置")
         config_window.Show()
 
     def on_add_file(self, event):
