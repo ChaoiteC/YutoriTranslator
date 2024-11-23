@@ -1,0 +1,16 @@
+# Python
+venv/
+*.pyc
+__pycache__/
+
+# Windows
+Thumbs.db
+
+# IDEs and editors
+.idea/
+.vscode/
+
+# Other
+*.log
+*.bak
+*.swp
