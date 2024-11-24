@@ -6,7 +6,8 @@
 import wx
 import configparser
 from filter import filter_images
-
+import json
+from BaiduAI import perform_baidu_ocr
 class ConfigWindow(wx.Frame):
     def __init__(self, parent, title):
         super(ConfigWindow, self).__init__(parent, title=title, size=(600, 500))
@@ -138,7 +139,7 @@ class YutoriTransMainWindow(wx.Frame):
         # 下方有一个文本框用于输出信息
         self.output_text_ctrl = wx.TextCtrl(output_container, style=wx.TE_MULTILINE | wx.TE_READONLY)
         output_container_sizer.Add(self.output_text_ctrl, 1, wx.EXPAND)
-        self.output_text_ctrl.SetHint("欢迎使用柚鸟与夏图片快速翻译工具Yutori Translator。\n输出信息将显示在这里。\n\n点击提取文字会将所选图片载之文字输出到txt上。\n")
+        self.output_text_ctrl.SetHint("欢迎使用柚鸟与夏图片快速翻译工具Yutori Translator。\n\n点击提取文字会将所选图片载之文字输出到txt上。\n\n程序输出信息将显示在下面。\n\n")
 
         output_container.SetSizer(output_container_sizer)
         left_vbox.Add(output_container, 1, wx.EXPAND | wx.ALL, border=10)
@@ -210,7 +211,8 @@ class YutoriTransMainWindow(wx.Frame):
         filter_images(paths, self)
 
         for path in paths:
-            pass
+            result = perform_baidu_ocr(path, source_language, self)
+            self.output_text_ctrl.AppendText(json.dumps(result, indent=4, ensure_ascii=False))
 
     def on_stop(self, event):
         self.output_text_ctrl.AppendText("停止操作\n")
