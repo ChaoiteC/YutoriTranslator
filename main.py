@@ -8,6 +8,8 @@ import configparser
 from filter import filter_images
 import json
 from BaiduAI import perform_baidu_ocr
+from deepseek import process_json,deepseek_AI_trans
+
 class ConfigWindow(wx.Frame):
     def __init__(self, parent, title):
         super(ConfigWindow, self).__init__(parent, title=title, size=(600, 500))
@@ -28,7 +30,7 @@ class ConfigWindow(wx.Frame):
         if not self.config.has_section('YUTORI_TRANS_CONFIG'):
             self.config.add_section('YUTORI_TRANS_CONFIG')
 
-        param_names = ["baidu_ai_ocr_app_key", "baidu_ai_ocr_secrct_key", "param3", "param4", "param5", "param6"]
+        param_names = ["baidu_ai_ocr_app_key", "baidu_ai_ocr_secrct_key", "deepseek_api_key", "param4", "param5", "param6"]
         self.text_ctrls = []
 
         for param in param_names:
@@ -53,7 +55,7 @@ class ConfigWindow(wx.Frame):
         save_button.SetFocus()
 
     def on_save(self, event):
-        for i, param in enumerate(["baidu_ai_ocr_app_key", "baidu_ai_ocr_secrct_key", "param3", "param4", "param5", "param6"]):
+        for i, param in enumerate(["baidu_ai_ocr_app_key", "baidu_ai_ocr_secrct_key", "deepseek_api_key", "param4", "param5", "param6"]):
             self.config.set('YUTORI_TRANS_CONFIG', param, self.text_ctrls[i].GetValue())
 
         with open('config.ini', 'w') as configfile:
@@ -139,7 +141,7 @@ class YutoriTransMainWindow(wx.Frame):
         # 下方有一个文本框用于输出信息
         self.output_text_ctrl = wx.TextCtrl(output_container, style=wx.TE_MULTILINE | wx.TE_READONLY)
         output_container_sizer.Add(self.output_text_ctrl, 1, wx.EXPAND)
-        self.output_text_ctrl.SetHint("欢迎使用柚鸟与夏图片快速翻译工具Yutori Translator。\n\n点击提取文字会将所选图片载之文字输出到txt上。\n\n程序输出信息将显示在下面。\n\n")
+        self.output_text_ctrl.SetHint("欢迎使用柚鸟与夏图片识别与翻译工具Yutori Translator。\n\n点击提取文字会将所选图片载之文字输出到txt上。\n\n程序输出信息将显示在下面。\n\n")
 
         output_container.SetSizer(output_container_sizer)
         left_vbox.Add(output_container, 1, wx.EXPAND | wx.ALL, border=10)
@@ -210,9 +212,13 @@ class YutoriTransMainWindow(wx.Frame):
         self.output_text_ctrl.AppendText("正在处理图片…\n")
         filter_images(paths, self)
 
-        for path in paths:
+        total_images = len(paths)
+        for i, path in enumerate(paths):
+            self.output_text_ctrl.AppendText(f"将图片传递向百度进行OCR：[{i+1}/{total_images}]\n")
             result = perform_baidu_ocr(path, source_language, self)
-            self.output_text_ctrl.AppendText(json.dumps(result, indent=4, ensure_ascii=False))
+            result = process_json(result)
+            self.output_text_ctrl.AppendText(f"将图片传递向Deepseek进行纠错，此过程用时较长：[{i+1}/{total_images}]\n")
+            deepseek_AI_trans(result,self)
 
     def on_stop(self, event):
         self.output_text_ctrl.AppendText("停止操作\n")
@@ -244,7 +250,7 @@ class FileDropTarget(wx.FileDropTarget):
     
 def main():
     app = wx.App()
-    yt = YutoriTransMainWindow(None,title="柚鸟与夏图片快速翻译工具 Yutori Translator")
+    yt = YutoriTransMainWindow(None,title="柚鸟与夏图片识别与翻译工具 Yutori Translator")
     yt.Show()
     app.MainLoop()
 

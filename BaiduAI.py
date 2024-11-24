@@ -21,7 +21,7 @@ def get_baidu_access_token(client_id, client_secret, force_request=False, main_w
         return config['BAIDU_AI_ACCESS_TOKEN']['access_token']
 
     if main_window:
-        main_window.output_text_ctrl.AppendText("正在请求Access Token……")
+        main_window.output_text_ctrl.AppendText("正在请求Access Token……\n")
 
     # 构建请求参数
     params = {
@@ -87,7 +87,7 @@ def perform_baidu_ocr(image_path, source_language="CHN_ENG", main_window = None)
         main_window.output_text_ctrl.AppendText(f"Error: {e}")
     
     # 构建请求URL
-    url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic?access_token={access_token}"
+    url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/general?access_token={access_token}"
     
     # 读取并编码图片
     image_base64 = encode_image_to_base64(image_path)
@@ -95,7 +95,8 @@ def perform_baidu_ocr(image_path, source_language="CHN_ENG", main_window = None)
     # 构建请求体
     payload = {
         "image": image_base64,
-        "language_type": api_language
+        "language_type": api_language,
+        "paragraph": "true"
     }
     
     # 发送POST请求

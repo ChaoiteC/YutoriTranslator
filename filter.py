@@ -35,7 +35,7 @@ def filter_images(paths, main_window):
 
     total_images = len(image_paths)
     for i, image_path in enumerate(image_paths):
-        main_window.output_text_ctrl.AppendText(f"[{i+1}/{total_images}]\n")
+        main_window.output_text_ctrl.AppendText(f"处理文件路径：[{i+1}/{total_images}]\n")
         is_valid, error_msg = is_valid_image(image_path)
         if is_valid:
             valid_paths.append(image_path)
