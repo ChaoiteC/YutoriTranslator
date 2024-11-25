@@ -5,10 +5,10 @@
 '''
 import wx
 import configparser
-from filter import filter_images
+from filter import filter_images,annotate_image
 import json
 from BaiduAI import perform_baidu_ocr
-from deepseek import process_json,deepseek_AI_trans
+from deepseek import process_json,deepseek_AI_sort, deepseek_AI_trans
 
 class ConfigWindow(wx.Frame):
     def __init__(self, parent, title):
@@ -217,8 +217,13 @@ class YutoriTransMainWindow(wx.Frame):
             self.output_text_ctrl.AppendText(f"将图片传递向百度进行OCR：[{i+1}/{total_images}]\n")
             result = perform_baidu_ocr(path, source_language, self)
             result = process_json(result)
-            self.output_text_ctrl.AppendText(f"将图片传递向Deepseek进行纠错，此过程用时较长：[{i+1}/{total_images}]\n")
-            deepseek_AI_trans(result,self)
+            self.output_text_ctrl.AppendText(f"将图片传递向Deepseek进行纠错，此过程用时较长，请不要关闭程序：[{i+1}/{total_images}]\n")
+            result = deepseek_AI_sort(result,self)
+            self.output_text_ctrl.AppendText(f"将文字传递向Deepseek进行翻译，此过程用时较长，请不要关闭程序：[{i+1}/{total_images}]\n")
+            result = deepseek_AI_trans(result,self)
+            self.output_text_ctrl.AppendText(f"正在标记并保存：[{i+1}/{total_images}]\n")
+            print(result)
+            annotate_image(result, path)
 
     def on_stop(self, event):
         self.output_text_ctrl.AppendText("停止操作\n")
