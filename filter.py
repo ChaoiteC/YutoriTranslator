@@ -45,61 +45,61 @@ def filter_images(paths, main_window):
     return valid_paths
 
 def annotate_image(json_data, image_path):
-    # Parse JSON data
+# 解析JSON数据
     paragraphs = json_data["paragraphs_result"]
     
-    # Open the image and convert to RGB
+    # 打开图片并转换为RGB模式
     img = Image.open(image_path).convert('RGB')
     draw = ImageDraw.Draw(img)
     img_width, img_height = img.size
     
     for para in paragraphs:
-        # Extract coordinates and dimensions
+        # 获取坐标和尺寸
         top = para["top"]
         left = para["left"]
         width = para["width"]
         height = para["height"]
         
-        # Ensure coordinates are within image boundaries
+        # 确保坐标在图片范围内
         left = max(0, left)
         top = max(0, top)
         width = min(img_width - left, width)
         height = min(img_height - top, height)
         
-        # Draw white rectangle
+        # 绘制白色矩形覆盖区域
         draw.rectangle([(left, top), (left + width, top + height)], fill="white")
         
-        # Prepare text by joining words and segmenting with jieba
+        # 获取文本内容
         words = para["words"]
         text = ''.join(words)
-        segmented_text = ' '.join(jieba.lcut(text))
         
-        # Define font properties
+        # 定义字体属性
         max_font_size = 48
         min_font_size = 8
         font_name = "Arial Unicode MS.TTF"  
         
-        # Function to wrap text
-        def wrap_text(text, font, max_width, draw):
-            words = text.split()
+        # 文本换行函数
+        def wrap_chinese_text(text, font, max_width, draw):
             lines = []
-            current_line = ""
-            for word in words:
-                temp_line = current_line + word + " "
-                if draw.textlength(temp_line, font=font) <= max_width:
+            current_line = ''
+            for char in text:
+                temp_line = current_line + char
+                bbox = draw.textbbox((0, 0), temp_line, font=font)
+                temp_width = bbox[2] - bbox[0]
+                if temp_width <= max_width:
                     current_line = temp_line
                 else:
                     if current_line:
                         lines.append(current_line)
-                    current_line = word + " "
+                    current_line = char
             if current_line:
                 lines.append(current_line)
             return lines
         
-        # Find suitable font size
+        # 寻找合适的字体大小
         font_size = max_font_size
         font = ImageFont.truetype(font_name, font_size)
-        lines = wrap_text(segmented_text, font, width, draw)
+        lines = wrap_chinese_text(text, font, width, draw)
         ascent, descent = font.getmetrics()
         line_height = ascent + descent
         text_height = line_height * len(lines)
@@ -107,31 +107,31 @@ def annotate_image(json_data, image_path):
         while text_height > height and font_size > min_font_size:
             font_size -= 1
             font = ImageFont.truetype(font_name, font_size)
-            lines = wrap_text(segmented_text, font, width, draw)
+            lines = wrap_chinese_text(text, font, width, draw)
             ascent, descent = font.getmetrics()
             line_height = ascent + descent
             text_height = line_height * len(lines)
         
-        # If even the smallest font doesn't fit, use the smallest possible
+        # 如果最小字体仍无法适应，使用最小字体
         if font_size < min_font_size:
             font_size = min_font_size
             font = ImageFont.truetype(font_name, font_size)
-            lines = wrap_text(segmented_text, font, width, draw)
+            lines = wrap_chinese_text(text, font, width, draw)
             ascent, descent = font.getmetrics()
             line_height = ascent + descent
             text_height = line_height * len(lines)
         
-        # Calculate starting position to center the text
-        max_text_width = max(draw.textlength(line, font=font) for line in lines)
+        # 计算文本位置
+        max_text_width = max(draw.textbbox((0, 0), line, font=font)[2] - draw.textbbox((0, 0), line, font=font)[0] for line in lines)
         x = left + (width - max_text_width) / 2
-        y = top + (height - text_height) / 2 + ascent  # Adjust y for ascent
+        y = top + (height - text_height) / 2 + ascent
         
-        # Draw each line
+        # 绘制每一行文本
         for line in lines:
             draw.text((x, y), line, font=font, fill="black")
             y += line_height
     
-    # Save the image
+    # 保存图片
     output_folder = "output"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
