@@ -1,5 +1,6 @@
 import os
 from PIL import Image, ImageDraw, ImageFont
+import jieba
 
 def get_all_image_paths(paths):
     image_paths = []
@@ -44,71 +45,101 @@ def filter_images(paths, main_window):
     return valid_paths
 
 def annotate_image(json_data, image_path):
-    # 打开图像
-    image = Image.open(image_path)
-    draw = ImageDraw.Draw(image)
+    # Parse JSON data
+    paragraphs = json_data["paragraphs_result"]
     
-    # 获取图像的宽度和高度
-    img_width, img_height = image.size
+    # Open the image and convert to RGB
+    img = Image.open(image_path).convert('RGB')
+    draw = ImageDraw.Draw(img)
+    img_width, img_height = img.size
     
-    # 加载字体
-    font_size = 20  # 字体大小
-    font = ImageFont.truetype("Arial Unicode MS.TTF", font_size)
-    
-    # 解析JSON数据
-    try:
-        paragraphs = json_data["paragraphs_result"]
-    except KeyError:
-        raise ValueError("Invalid JSON format: 'paragraphs_result' key not found")
-    
-    # 用于存储所有words的列表
-    words_list = []
-    
-    # 在图像上绘制红色数字序号
-    for i, paragraph in enumerate(paragraphs):
-        try:
-            words = paragraph["words"]
-            top = paragraph["top"]
-            left = paragraph["left"]
-        except KeyError:
-            raise ValueError("Invalid JSON format: 'words', 'top', or 'left' key not found in paragraph")
+    for para in paragraphs:
+        # Extract coordinates and dimensions
+        top = para["top"]
+        left = para["left"]
+        width = para["width"]
+        height = para["height"]
         
-        # 绘制红色数字序号
-        draw.text((left, top), f"{i+1}", fill="red", font=font)
+        # Ensure coordinates are within image boundaries
+        left = max(0, left)
+        top = max(0, top)
+        width = min(img_width - left, width)
+        height = min(img_height - top, height)
         
-        # 将words添加到列表中
-        words_list.append(words)
+        # Draw white rectangle
+        draw.rectangle([(left, top), (left + width, top + height)], fill="white")
+        
+        # Prepare text by joining words and segmenting with jieba
+        words = para["words"]
+        text = ''.join(words)
+        segmented_text = ' '.join(jieba.lcut(text))
+        
+        # Define font properties
+        max_font_size = 48
+        min_font_size = 8
+        font_name = "Arial Unicode MS.TTF"  
+        
+        # Function to wrap text
+        def wrap_text(text, font, max_width, draw):
+            words = text.split()
+            lines = []
+            current_line = ""
+            for word in words:
+                temp_line = current_line + word + " "
+                if draw.textlength(temp_line, font=font) <= max_width:
+                    current_line = temp_line
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word + " "
+            if current_line:
+                lines.append(current_line)
+            return lines
+        
+        # Find suitable font size
+        font_size = max_font_size
+        font = ImageFont.truetype(font_name, font_size)
+        lines = wrap_text(segmented_text, font, width, draw)
+        ascent, descent = font.getmetrics()
+        line_height = ascent + descent
+        text_height = line_height * len(lines)
+        
+        while text_height > height and font_size > min_font_size:
+            font_size -= 1
+            font = ImageFont.truetype(font_name, font_size)
+            lines = wrap_text(segmented_text, font, width, draw)
+            ascent, descent = font.getmetrics()
+            line_height = ascent + descent
+            text_height = line_height * len(lines)
+        
+        # If even the smallest font doesn't fit, use the smallest possible
+        if font_size < min_font_size:
+            font_size = min_font_size
+            font = ImageFont.truetype(font_name, font_size)
+            lines = wrap_text(segmented_text, font, width, draw)
+            ascent, descent = font.getmetrics()
+            line_height = ascent + descent
+            text_height = line_height * len(lines)
+        
+        # Calculate starting position to center the text
+        max_text_width = max(draw.textlength(line, font=font) for line in lines)
+        x = left + (width - max_text_width) / 2
+        y = top + (height - text_height) / 2 + ascent  # Adjust y for ascent
+        
+        # Draw each line
+        for line in lines:
+            draw.text((x, y), line, font=font, fill="black")
+            y += line_height
     
-    # 计算新的图像高度
-    padding = 20  # 空白区域的高度
-    # Calculate max text width using getbbox
-    max_text_width = max(font.getbbox(f"{i+1}. {words}")[2] - font.getbbox(f"{i+1}. {words}")[0] for i, words in enumerate(words_list))
-    new_height = img_height + padding + len(words_list) * font_size
-    
-    # 创建新的图像
-    new_image_width = max(img_width, max_text_width + 20)
-    new_image = Image.new("RGB", (int(new_image_width), int(new_height)), color="white")
-    new_image.paste(image, (0, 0))
-    
-    new_draw = ImageDraw.Draw(new_image)
-    
-    # 在空白区域输出words
-    for i, words in enumerate(words_list):
-        new_draw.text((10, img_height + padding + i * font_size), f"{i+1}. {words}", fill="black", font=font)
-    
-    # 创建输出文件夹
+    # Save the image
     output_folder = "output"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
-    # 生成新的文件名
-    base_name, ext = os.path.splitext(os.path.basename(image_path))
-    new_file_name = f"{base_name}_YutoriTrans{ext}"
-    output_path = os.path.join(output_folder, new_file_name)
-    
-    # 保存图像到输出文件夹
-    new_image.save(output_path)
-    print(f"Annotated image saved to {output_path}")
+    file_name = os.path.basename(image_path)
+    name, ext = os.path.splitext(file_name)
+    output_path = os.path.join(output_folder, f"{name}_yutori{ext}")
+    img.save(output_path)
     
     # 完成后打开文件夹
     if os.name == 'nt':  # Windows
